@@ -36,6 +36,7 @@
   "author": "Michiel de Jong <michiel@unhosted.org>",
   "license": "Apache-2.0",
   "dependencies": {
+    "@dxos/client": "^0.5.8",
     "cambria": "^0.1.2",
     "octokit": "^4.0.2",
     "tslib": "~2.6"
