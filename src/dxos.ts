@@ -1,16 +1,11 @@
-import { Client } from '@dxos/client';
+const dxos = require("@dxos/client");
 
-export class Replica {
-  client: Client;
-  space: object;
-  constructor() {
-    this.client = new Client();
-  }
-  async init(): Promise<void> {
-    await this.client.initialize();
-    if (!this.client.halo.identity.get()) {
-      await this.client.halo.createIdentity();
-    }
-    this.space = await this.client.spaces.create();
-  }
+export async function initDxos() {
+  const client = new dxos.Client();
+  await client.initialize();
+  // ensure an identity exists:
+  if (!client.halo.identity.get()) await client.halo.createIdentity();
+  // create a space:
+  const space = await client.spaces.create();
+  return { client, space };
 }

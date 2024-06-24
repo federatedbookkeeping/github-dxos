@@ -1,16 +1,8 @@
 {
-  "name": "node-typescript-boilerplate",
-  "version": "0.0.0",
-  "description": "Minimalistic boilerplate to quick-start Node.js development in TypeScript.",
-  "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node dist/main.js",
-    "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc src/* --outDir dist/"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "@dxos/client": "^0.5.8",
     "cambria": "^0.1.2",
