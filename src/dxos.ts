@@ -6,7 +6,7 @@ export class Replica {
   constructor() {
     this.client = new Client();
   }
-  async init() {
+  async init(): Promise<void> {
     await this.client.initialize();
     if (!this.client.halo.identity.get()) {
       await this.client.halo.createIdentity();

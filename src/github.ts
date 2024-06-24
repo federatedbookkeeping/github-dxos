@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 
-export async function getIssue() {
+export async function getIssue(): Promise<object> {
 
     const octokit = new Octokit({ auth: process.env["GITHUB_TOKEN"] });
     const {
