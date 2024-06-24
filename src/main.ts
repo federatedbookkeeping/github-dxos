@@ -1,17 +1,15 @@
 import { getIssue } from "./github.js";
 import { convertIssue } from "./cambria.js";
+import { Replica } from "./dxos.js";
 
-const doc = await getIssue();
-// const doc = {
-//   "id": 1,
-//   "state": "open",
-//   "name": "Found a bug!!!",
-//   "body": "I'm having a problem with this.",
-//   "category": "feature",
-//   "created_at": "2011-04-22T13:33:48Z",
-//   "updated_at": "2011-04-22T13:33:48Z"
-// };
+async function run() {
+  const doc = await getIssue();
+  console.log(doc);
+  const newDoc = await convertIssue(doc);
+  console.log(newDoc);
+  const replica = new Replica();
+  await replica.init();
+}
 
-console.log(doc);
-const newDoc = await convertIssue(doc);
-console.log(newDoc);
+// ...
+run();
