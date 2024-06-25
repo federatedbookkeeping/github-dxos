@@ -1,49 +1,47 @@
+const fsPromises = require("fs/promises");
+
 export type OperationType = 'upsert' | 'merge' | 'fork';
 export type ObjectType = 'issue' | 'worked' | 'comment';
 
-export type Item = {
-  identifiers: Set<string>,
+export class Item {
+  type: string;
+  identifiers: string[];
   deleted: boolean;
 }
 
-export type Issue = {
-  identifiers: Set<string>,
-  deleted: boolean,
-  title: string,
-  completed: boolean
+export class Issue extends Item {
+  title: string;
+  completed: boolean;
 };
 
-export type Worked = {
-  identifiers: Set<string>,
-  deleted: boolean,
-  userId: string,
-  project: string,
-  task: string,
-  description: string,
-  startTime: string,
-  endTime: string,
-  date: string
+export class Worked extends Item {
+  userId: string;
+  project: string;
+  task: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+  date: string;
 };
 
-export type Comment = {
-  identifiers: Set<string>,
-  deleted: boolean,
-  issueId: string,
-  text: string
+export class Comment extends Item {
+  issueId: string;
+  text: string;
 }
 
 export type Operation = {
   operationType: OperationType,
-  fields: Partial<Issue> | Partial<Worked> | Partial<Comment>
+  fields: Partial<Item>
 };
 
 export class DataStore {
   items: Item[] = [];
-  match(identifiers: Set<string>, cb: (i: number, id: string) => void) {
+  match(identifiers: string[], cb: (i: number, id: string) => void) {
     for (let i = 0; i < this.items.length; i++) {
-      for (const id of identifiers) {
-        if (this.items[i].identifiers.has(id)) {
-          cb(i, id);
+      for (let j = 0; j < identifiers.length; j++) {
+        console.log('matching', this.items[i]);
+        if (this.items[i].identifiers.includes(identifiers[j])) {
+          cb(i, identifiers[j]);
         }
       }
     }
@@ -66,10 +64,8 @@ export class DataStore {
           if (winner === -1) {
             winner = i;
           } else {
-            for (const id of this.items[i].identifiers) {
-              this.items[winner].identifiers.add(id);
-              this.items[i].identifiers.delete(id);
-            }
+            this.items[winner].identifiers = this.items[winner].identifiers.concat(this.items[i].identifiers);
+            this.items[i].identifiers = [];
             this.items[i].deleted = true;
           }
         });
@@ -79,12 +75,25 @@ export class DataStore {
             if (added === -1) {
               added = this.items.length;
               this.items.push({ ...this.items[i]});
-              this.items[added].identifiers.clear();
+              this.items[added].identifiers = [];
             }
-            this.items[added].identifiers.add(id);
-            this.items[i].identifiers.delete(id);
+            this.items[added].identifiers.push(id);
+            this.items[i].identifiers = this.items[i].identifiers.filter(x => x !== id);
           });
         default:
     }
+  }
+  async load(filename: string) {
+    try {
+      const buff = await fsPromises.readFile(filename);
+      this.items = JSON.parse(buff.toString());
+      console.log(`Loaded ${filename}`);
+    } catch {
+      console.log(`Failed to load ${filename}`);
+    }
+  }
+  async save(filename: string) {
+    await fsPromises.writeFile(filename, JSON.stringify(this.items, null, 2) + "\n");
+    console.log(`Saved ${filename}`);
   }
 }

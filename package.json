@@ -1,7 +1,7 @@
 {
   "scripts": {
     "start": "node dist/main.js",
-    "build": "tsc --downlevelIteration src/* --outDir dist/"
+    "build": "tsc src/* --outDir dist/"
   },
   "dependencies": {
     "@dxos/client": "^0.5.8",
