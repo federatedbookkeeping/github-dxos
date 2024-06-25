@@ -1,5 +1,12 @@
 import { exec } from "child_process";
 
+export interface GitHubIssue {
+  node_id: string,
+  comments_url: string,
+  title: string
+  comments: object[]
+}
+
 // using the `gh` executable here since there seems to be no tsconfig.json
 // that can compile a project that uses both Octokit and DXOS.
 
