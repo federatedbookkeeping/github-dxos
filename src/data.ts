@@ -11,6 +11,7 @@ export class Item {
 
 export class Issue extends Item {
   title: string;
+  body: string;
   completed: boolean;
 };
 
@@ -26,7 +27,7 @@ export class Worked extends Item {
 
 export class Comment extends Item {
   issueId: string;
-  text: string;
+  body: string;
 }
 
 export type Operation = {
@@ -95,5 +96,15 @@ export class DataStore {
   async save(filename: string) {
     await fsPromises.writeFile(filename, JSON.stringify(this.items, null, 2) + "\n");
     console.log(`Saved ${filename}`);
+  }
+  issueIdToIssueIds(issueId: string): string[] {
+    for (let i = 0; i < this.items.length; i++) {
+      for (let j = 0; j < this.items[i].identifiers.length; j++) {
+        if (this.items[i].identifiers[j] === issueId) {
+          return this.items[i].identifiers;
+        }
+      }
+    }
+    return [];
   }
 }

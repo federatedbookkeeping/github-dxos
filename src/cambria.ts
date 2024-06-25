@@ -17,6 +17,7 @@ export async function convertIssue(doc: GitHubIssue): Promise<Issue> {
     identifiers: [`gh_node_id:${doc.node_id!}`, `gh_api_url:${doc.url}`],
     deleted: false,
     title: doc.title,
+    body: doc.body,
     completed: false,
   };
 }
@@ -29,6 +30,6 @@ export async function convertComment(comment: GitHubComment): Promise<Comment> {
     identifiers: [`gh_node_id:${comment.node_id!}`, `gh_api_url:${comment.url}`],
     issueId: `gh_api_url:${comment.issue_url}`,
     deleted: false,
-    text: comment.body,
+    body: comment.body,
   };
 }
