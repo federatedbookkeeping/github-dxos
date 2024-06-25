@@ -21,6 +21,10 @@ export interface GitHubComment {
 // that can compile a project that uses both Octokit and DXOS.
 
 export async function getDataOverNetwork(url: string): Promise<GitHubIssue[]> {
+  if (typeof process.env.GITHUB_TOKEN !== 'string') {
+    console.error('export GITHUB_TOKEN=...');
+    process.exit(1);
+  }
   const fetchResult = await fetch(url, {
     method: 'GET',
     headers: {
