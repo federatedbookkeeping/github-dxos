@@ -1,8 +1,8 @@
 # Work in Progress
 
 ```
-# brew install python-setuptools
 npm install
 npm run build
+export GITHUB_TOKEN=...
 npm start
 ```
