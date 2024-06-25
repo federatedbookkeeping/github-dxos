@@ -2,7 +2,7 @@ const { Client } = require("@dxos/client");
 const { Space } = require("@dxos/client/echo");
 const { InvitationEncoder } = require('@dxos/client/invitations');
 
-export async function initDxos(): Promise<Client> {
+export async function initDxos(): Promise<typeof Client> {
   const client = new Client();
   console.log('DXOS initialize');
   await client.initialize();
@@ -15,14 +15,14 @@ export async function initDxos(): Promise<Client> {
   console.log('DXOS spaces ready');
   return client;
 }
-export async function acceptInvite(client: Client, code: string, authCode: string): Promise<Space> {
+export async function acceptInvite(client: typeof Client, code: string, authCode: string): Promise<typeof Space> {
   const receivedInvitation = InvitationEncoder.decode(code);
   const invitation = client.spaces.join(receivedInvitation);
   await invitation.authenticate(authCode);
   return client.spaces.get(invitation.get().spaceKey!)!;
 }
 
-export async function generateInvite(client: Client): Promise<{ space: object, code: string, authCode: string }> {
+export async function generateInvite(client: typeof Client): Promise<{ space: object, code: string, authCode: string }> {
   const space = client.spaces.default;
   const invitation = space.share();
   const code = InvitationEncoder.encode(invitation.get());
