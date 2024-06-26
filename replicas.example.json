@@ -1,6 +1,7 @@
 [
     {
         "type": "github",
+        "name": "upstream",
         "tokens": {
             "michielbdejong": "github_pat_11AA..."
         },
@@ -9,6 +10,7 @@
     },
     {
         "type": "github",
+        "name": "me",
         "tokens": {
             "michielbdejong": "github_pat_11AA..."
         },

@@ -1,4 +1,5 @@
 const fsPromises = require("fs/promises");
+const EventEmitter = require('node:events');
 
 export type OperationType = 'upsert' | 'merge' | 'fork';
 export type ObjectType = 'issue' | 'worked' | 'comment';
@@ -32,15 +33,16 @@ export class Comment extends Item {
 
 export type Operation = {
   operationType: OperationType,
-  fields: Partial<Item>
+  fields: Partial<Item>,
+  origin?: string,
 };
 
-export class DataStore {
+export class DataStore extends EventEmitter {
   items: Item[] = [];
   match(identifiers: string[], cb: (i: number, id: string) => void) {
     for (let i = 0; i < this.items.length; i++) {
       for (let j = 0; j < identifiers.length; j++) {
-        console.log('matching', this.items[i]);
+        // console.log('matching', this.items[i]);
         if (this.items[i].identifiers.includes(identifiers[j])) {
           cb(i, identifiers[j]);
         }
@@ -48,6 +50,7 @@ export class DataStore {
     }
   }
   applyOperation(operation: Operation) {
+    this.emit('operation', operation);
     switch(operation.operationType) {
       case 'upsert':
         let matched = false;

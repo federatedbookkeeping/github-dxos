@@ -1,5 +1,5 @@
 import { convertComment, convertIssue } from "./cambria";
-import { Item, Issue, Comment, DataStore } from "./data";
+import { Item, Issue, Comment, DataStore, Operation } from "./data";
 const fsPromises = require("fs/promises");
 
 export interface GitHubIssue {
@@ -30,6 +30,7 @@ export interface GitHubCommentAdd {
 }
 
 export type GitHubReplicaSpec = {
+  name: string;
   tokens: {
     [user: string]: string;
   };
@@ -38,17 +39,22 @@ export type GitHubReplicaSpec = {
 };
 
 export class GitHubReplica {
-  tokens: {
-    [user: string]: string;
-  };
-  trackerUrl: string;
+  spec: GitHubReplicaSpec;
   dataStore: DataStore;
-  dataPath: string;
   constructor(spec: GitHubReplicaSpec, dataStore: DataStore) {
-    this.tokens = spec.tokens;
-    this.trackerUrl = spec.trackerUrl;
-    this.dataPath = spec.dataPath;
+    this.spec = spec;
     this.dataStore = dataStore;
+    this.dataStore.on('operation', async (operation: Operation) => {
+      if (operation.origin === this.spec.name) {
+        return;
+      }
+      console.log(`Replicate ${this.spec.name} sees operation`, operation);
+      this.handleOperation(operation);
+      // console.log(`Replica ${this.spec.name} finished handling operation`, operation);
+    });
+  }
+  async handleOperation(operation: Operation) {
+
   }
 
   async apiCall(args: { url: string, method: string, body?: string, user: string }): Promise<any> {
@@ -57,11 +63,11 @@ export class GitHubReplica {
       "X-GitHub-Api-Version": "2022-11-28",
     };
     if (typeof args.user === 'string') {
-      if (typeof this.tokens[args.user] !== "string") {
-        // console.log(this.tokens);
+      if (typeof this.spec.tokens[args.user] !== "string") {
+        // console.log(this.spec.tokens);
         throw new Error(`No token available for user "${args.user}"`);
       }
-      headers['Authorization'] = `Bearer ${this.tokens[args.user]}`;
+      headers['Authorization'] = `Bearer ${this.spec.tokens[args.user]}`;
     }
     console.log('apiCall', args);
     const fetchResult = await fetch(args.url, {
@@ -105,7 +111,7 @@ export class GitHubReplica {
   }
 
   async getIssues(filename: string, user: string): Promise<GitHubIssue[]> {
-    return this.getData(filename, this.trackerUrl + `/issues`, user);
+    return this.getData(filename, this.spec.trackerUrl + `/issues`, user);
   }
 
   async addIssue(user: string, issue: GitHubIssueAdd): Promise<string> {
@@ -148,16 +154,17 @@ export class GitHubReplica {
     }
   }
   async sync(user) {
-    const docs: GitHubIssue[] = await this.getIssues(`${this.dataPath}/issues.json`, user);
+    const docs: GitHubIssue[] = await this.getIssues(`${this.spec.dataPath}/issues.json`, user);
     let comments: GitHubComment[] = [];
     const commentFetches = docs.map(async doc => {
-      const issueComments = await this.getData(`${this.dataPath}/comments_${doc.node_id}.json`, doc.comments_url, user);
+      const issueComments = await this.getData(`${this.spec.dataPath}/comments_${doc.node_id}.json`, doc.comments_url, user);
       comments = comments.concat(issueComments);
     });
     await Promise.all(commentFetches);
     const docUpserts = docs.map(async (doc) => {
       console.log('upserting doc', doc);
       this.dataStore.applyOperation({
+        origin: this.spec.name,
         operationType: 'upsert',
         fields: await convertIssue(doc)
       });
@@ -166,6 +173,7 @@ export class GitHubReplica {
     const commentUpserts = comments.map(async (comment) => {
       console.log('upserting comment', comment);
       this.dataStore.applyOperation({
+        origin: this.spec.name,
         operationType: 'upsert',
         fields: await convertComment(comment)
       });
