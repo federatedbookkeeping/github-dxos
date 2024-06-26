@@ -2,6 +2,16 @@ import { convertComment, convertIssue } from "./cambria";
 import { Item, Issue, Comment, DataStore, Operation } from "./data";
 const fsPromises = require("fs/promises");
 
+
+const DEFAULT_HTTP_HEADERS = {
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": "2022-11-28",
+};
+
+const API_URL_ID_SCHEME = 'gh_api_url';
+const REL_API_PATH_ISSUES = `/issues`;
+const REL_API_PATH_COMMENTS = `/comments`;
+
 export interface GitHubIssue {
   repository_url: string;
   url: string;
@@ -34,6 +44,7 @@ export type GitHubReplicaSpec = {
   tokens: {
     [user: string]: string;
   };
+  defaultUser: string;
   trackerUrl: string;
   dataPath: string;
 };
@@ -41,10 +52,12 @@ export type GitHubReplicaSpec = {
 export class GitHubReplica {
   spec: GitHubReplicaSpec;
   dataStore: DataStore;
+  apiUrlIdentifierPrefix: string;
   constructor(spec: GitHubReplicaSpec, dataStore: DataStore) {
     this.spec = spec;
+    this.apiUrlIdentifierPrefix = `${API_URL_ID_SCHEME}:${this.spec.trackerUrl}`;
     this.dataStore = dataStore;
-    this.dataStore.on('operation', async (operation: Operation) => {
+    this.dataStore.on("operation", async (operation: Operation) => {
       if (operation.origin === this.spec.name) {
         return;
       }
@@ -53,23 +66,22 @@ export class GitHubReplica {
       // console.log(`Replica ${this.spec.name} finished handling operation`, operation);
     });
   }
-  async handleOperation(operation: Operation) {
 
-  }
-
-  async apiCall(args: { url: string, method: string, body?: string, user: string }): Promise<any> {
-    const headers = {
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    };
-    if (typeof args.user === 'string') {
+  async apiCall(args: {
+    url: string;
+    method: string;
+    body?: string;
+    user: string;
+  }): Promise<any> {
+    const headers = DEFAULT_HTTP_HEADERS;
+    if (typeof args.user === "string") {
       if (typeof this.spec.tokens[args.user] !== "string") {
         // console.log(this.spec.tokens);
         throw new Error(`No token available for user "${args.user}"`);
       }
-      headers['Authorization'] = `Bearer ${this.spec.tokens[args.user]}`;
+      headers["Authorization"] = `Bearer ${this.spec.tokens[args.user]}`;
     }
-    console.log('apiCall', args);
+    console.log("apiCall", args);
     const fetchResult = await fetch(args.url, {
       method: args.method,
       headers,
@@ -86,9 +98,9 @@ export class GitHubReplica {
       user,
       url,
       method: "POST",
-      body: JSON.stringify(data, null, 2)
-  };
-    const response = await this.apiCall(args) as { url: string };
+      body: JSON.stringify(data, null, 2),
+    };
+    const response = (await this.apiCall(args)) as { url: string };
     return response.url;
   }
 
@@ -111,21 +123,20 @@ export class GitHubReplica {
   }
 
   async getIssues(filename: string, user: string): Promise<GitHubIssue[]> {
-    return this.getData(filename, this.spec.trackerUrl + `/issues`, user);
+    return this.getData(filename, this.spec.trackerUrl + REL_API_PATH_ISSUES, user);
   }
 
   async addIssue(user: string, issue: GitHubIssueAdd): Promise<string> {
-    return this.remoteCreate(user, `${issue.repository_url}/issues`, issue);
+    return this.remoteCreate(user, issue.repository_url + REL_API_PATH_ISSUES, issue);
   }
   async addComment(user: string, comment: GitHubCommentAdd): Promise<string> {
-    return this.remoteCreate(user, `${comment.issue_url}/comments`, comment);
+    return this.remoteCreate(user, comment.issue_url + REL_API_PATH_COMMENTS, comment);
   }
 
   async addItem(user: string, item: Item) {
     if (item.type === "issue") {
       return this.addIssue(user, {
-        repository_url:
-          "https://api.github.com/federatedbookkeeping/task-tracking",
+        repository_url: this.spec.trackerUrl,
         title: (item as Issue).title,
         body: "",
       });
@@ -135,9 +146,9 @@ export class GitHubReplica {
         (item as Comment).issueId
       );
       for (let i = 0; i < issueUrlCandidates.length; i++) {
-        if (issueUrlCandidates[i].startsWith("gh_api_url:")) {
+        if (issueUrlCandidates[i].startsWith(this.apiUrlIdentifierPrefix)) {
           return this.addComment(user, {
-            issue_url: issueUrlCandidates[i].substring("gh_api_url:".length),
+            issue_url: issueUrlCandidates[i].substring(API_URL_ID_SCHEME.length),
             body: (item as Comment).body,
           });
         }
@@ -147,39 +158,67 @@ export class GitHubReplica {
 
   async upsert(user: string, item: Item): Promise<void> {
     let ghApiUrl: string | undefined = item.identifiers.find((x: string) =>
-      x.startsWith("gh_api_url:")
+      x.startsWith(this.apiUrlIdentifierPrefix)
     );
     if (typeof ghApiUrl === "undefined") {
       ghApiUrl = await this.addItem(user, item);
     }
   }
+
+  async handleOperation(operation: Operation) {
+    switch (operation.operationType) {
+      case "upsert":
+        this.upsert(this.spec.defaultUser, operation.fields as Item);
+        break;
+      case "merge":
+        // not implemented yet
+        break;
+      case "fork":
+        // not implemented yet
+        break;
+      default:
+        console.error("unknown operation type", operation);
+    }
+  }
+  getIssuesFilePath() {
+    return `${this.spec.dataPath}/issues.json`;
+  }
+  getCommentsFilePath(nodeId: string) {
+    return `${this.spec.dataPath}/comments_${nodeId}.json`;
+  }
   async sync(user) {
-    const docs: GitHubIssue[] = await this.getIssues(`${this.spec.dataPath}/issues.json`, user);
+    const docs: GitHubIssue[] = await this.getIssues(
+      this.getIssuesFilePath(),
+      user
+    );
     let comments: GitHubComment[] = [];
-    const commentFetches = docs.map(async doc => {
-      const issueComments = await this.getData(`${this.spec.dataPath}/comments_${doc.node_id}.json`, doc.comments_url, user);
+    const commentFetches = docs.map(async (doc) => {
+      const issueComments = await this.getData(
+        this.getCommentsFilePath(doc.node_id),
+        doc.comments_url,
+        user
+      );
       comments = comments.concat(issueComments);
     });
     await Promise.all(commentFetches);
     const docUpserts = docs.map(async (doc) => {
-      console.log('upserting doc', doc);
+      // console.log('upserting doc', doc);
       this.dataStore.applyOperation({
         origin: this.spec.name,
-        operationType: 'upsert',
-        fields: await convertIssue(doc)
+        operationType: "upsert",
+        fields: await convertIssue(doc),
       });
     });
     await Promise.all(docUpserts);
     const commentUpserts = comments.map(async (comment) => {
-      console.log('upserting comment', comment);
+      // console.log('upserting comment', comment);
       this.dataStore.applyOperation({
         origin: this.spec.name,
-        operationType: 'upsert',
-        fields: await convertComment(comment)
+        operationType: "upsert",
+        fields: await convertComment(comment),
       });
     });
     await Promise.all(commentUpserts);
     // console.log(this.dataStore.items);
-  
   }
 }
