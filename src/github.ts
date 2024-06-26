@@ -61,9 +61,9 @@ export class GitHubReplica {
       if (operation.origin === this.spec.name) {
         return;
       }
-      console.log(`Replicate ${this.spec.name} sees operation`, operation);
+      console.log(`Replica ${this.spec.name} sees operation`, operation);
       this.handleOperation(operation);
-      // console.log(`Replica ${this.spec.name} finished handling operation`, operation);
+      console.log(`Replica ${this.spec.name} finished handling operation`, operation);
     });
   }
 
@@ -101,6 +101,7 @@ export class GitHubReplica {
       body: JSON.stringify(data, null, 2),
     };
     const response = (await this.apiCall(args)) as { url: string };
+    console.log(response);
     return response.url;
   }
 
@@ -138,7 +139,7 @@ export class GitHubReplica {
       return this.addIssue(user, {
         repository_url: this.spec.trackerUrl,
         title: (item as Issue).title,
-        body: "",
+        body: (item as Issue).body,
       });
     }
     if (item.type === "comment") {
@@ -160,6 +161,7 @@ export class GitHubReplica {
     let ghApiUrl: string | undefined = item.identifiers.find((x: string) =>
       x.startsWith(this.apiUrlIdentifierPrefix)
     );
+    console.log('no identifier found with prefix', this.apiUrlIdentifierPrefix);
     if (typeof ghApiUrl === "undefined") {
       ghApiUrl = await this.addItem(user, item);
     }
