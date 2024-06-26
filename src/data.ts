@@ -87,6 +87,22 @@ export class DataStore extends EventEmitter {
         default:
     }
   }
+
+  addIdentifier(existingIdentifier: string, additionalIdentifier: string) {
+    for (let i = 0; i < this.items.length; i++) {
+      if (this.items[i].identifiers.includes(existingIdentifier)) {
+        if (this.items[i].identifiers.includes(additionalIdentifier)) {
+          console.error('already have that identifier');
+        } else {
+          this.items[i].identifiers.push(additionalIdentifier);
+          console.log('added identifier', this.items[i].identifiers);
+          return;
+        }
+      }
+    }
+    throw new Error(`No item found with existing identifier ${existingIdentifier}, cannot add ${additionalIdentifier}`);
+  }
+
   async load(filename: string) {
     try {
       const buff = await fsPromises.readFile(filename);

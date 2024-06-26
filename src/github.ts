@@ -62,8 +62,8 @@ export class GitHubReplica {
         return;
       }
       console.log(`Replica ${this.spec.name} sees operation`, operation);
-      this.handleOperation(operation);
-      console.log(`Replica ${this.spec.name} finished handling operation`, operation);
+      await this.handleOperation(operation);
+      console.log(`Replica ${this.spec.name} finished handling operation`);
     });
   }
 
@@ -87,6 +87,7 @@ export class GitHubReplica {
       headers,
       body: args.body,
     });
+    // console.log(fetchResult);
     return fetchResult.json();
   }
   async getDataOverNetwork(url: string, user: string): Promise<GitHubIssue[]> {
@@ -94,6 +95,7 @@ export class GitHubReplica {
   }
 
   async remoteCreate(user: string, url: string, data: object): Promise<string> {
+    console.log('remoteCreate', user, url);
     const args = {
       user,
       url,
@@ -101,7 +103,7 @@ export class GitHubReplica {
       body: JSON.stringify(data, null, 2),
     };
     const response = (await this.apiCall(args)) as { url: string };
-    console.log(response);
+    // console.log(response);
     return response.url;
   }
 
@@ -134,7 +136,7 @@ export class GitHubReplica {
     return this.remoteCreate(user, comment.issue_url + REL_API_PATH_COMMENTS, comment);
   }
 
-  async addItem(user: string, item: Item) {
+  async addItem(user: string, item: Item): Promise<string> {
     if (item.type === "issue") {
       return this.addIssue(user, {
         repository_url: this.spec.trackerUrl,
@@ -146,6 +148,7 @@ export class GitHubReplica {
       const issueUrlCandidates = this.dataStore.issueIdToIssueIds(
         (item as Comment).issueId
       );
+      console.log(`found issue url candidate for ${(item as Comment).issueId}`, issueUrlCandidates);
       for (let i = 0; i < issueUrlCandidates.length; i++) {
         if (issueUrlCandidates[i].startsWith(this.apiUrlIdentifierPrefix)) {
           return this.addComment(user, {
@@ -154,23 +157,30 @@ export class GitHubReplica {
           });
         }
       }
+      throw new Error('cannot post comment if issue doesnt exist');
     }
+    throw new Error(`Unknown item type ${item.type}`);
   }
 
-  async upsert(user: string, item: Item): Promise<void> {
+  async upsert(user: string, item: Item): Promise<string | undefined> {
     let ghApiUrl: string | undefined = item.identifiers.find((x: string) =>
       x.startsWith(this.apiUrlIdentifierPrefix)
     );
     console.log('no identifier found with prefix', this.apiUrlIdentifierPrefix);
     if (typeof ghApiUrl === "undefined") {
-      ghApiUrl = await this.addItem(user, item);
+      return this.addItem(user, item);
     }
   }
 
   async handleOperation(operation: Operation) {
     switch (operation.operationType) {
       case "upsert":
-        this.upsert(this.spec.defaultUser, operation.fields as Item);
+        const item = operation.fields as Item;
+        const additionalIdentifier: string | undefined = await this.upsert(this.spec.defaultUser, item);
+        console.log('additional identifier camem back from upsert', additionalIdentifier);
+        if (typeof additionalIdentifier === 'string') {
+          this.dataStore.addIdentifier(item.identifiers[0], additionalIdentifier);
+        }
         break;
       case "merge":
         // not implemented yet
@@ -188,17 +198,17 @@ export class GitHubReplica {
   getCommentsFilePath(nodeId: string) {
     return `${this.spec.dataPath}/comments_${nodeId}.json`;
   }
-  async sync(user) {
+  async sync() {
     const docs: GitHubIssue[] = await this.getIssues(
       this.getIssuesFilePath(),
-      user
+      this.spec.defaultUser
     );
     let comments: GitHubComment[] = [];
     const commentFetches = docs.map(async (doc) => {
       const issueComments = await this.getData(
         this.getCommentsFilePath(doc.node_id),
         doc.comments_url,
-        user
+        this.spec.defaultUser
       );
       comments = comments.concat(issueComments);
     });
