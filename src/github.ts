@@ -168,7 +168,8 @@ export class GitHubReplica {
     );
     console.log('no identifier found with prefix', this.apiUrlIdentifierPrefix);
     if (typeof ghApiUrl === "undefined") {
-      return this.addItem(user, item);
+      const itemUrl = await this.addItem(user, item);
+      return `${API_URL_ID_SCHEME}:${itemUrl}`;
     }
   }
 
@@ -177,7 +178,7 @@ export class GitHubReplica {
       case "upsert":
         const item = operation.fields as Item;
         const additionalIdentifier: string | undefined = await this.upsert(this.spec.defaultUser, item);
-        console.log('additional identifier camem back from upsert', additionalIdentifier);
+        console.log('additional identifier came back from upsert', additionalIdentifier);
         if (typeof additionalIdentifier === 'string') {
           this.dataStore.addIdentifier(item.identifiers[0], additionalIdentifier);
         }
@@ -222,6 +223,7 @@ export class GitHubReplica {
       });
     });
     await Promise.all(docUpserts);
+    console.log(`Replica ${this.spec.name} is done syncing issues`);
     const commentUpserts = comments.map(async (comment) => {
       // console.log('upserting comment', comment);
       this.dataStore.applyOperation({
@@ -231,6 +233,6 @@ export class GitHubReplica {
       });
     });
     await Promise.all(commentUpserts);
-    // console.log(this.dataStore.items);
+    console.log(`Replica ${this.spec.name} is done syncing comments`);
   }
 }

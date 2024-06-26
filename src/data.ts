@@ -50,7 +50,6 @@ export class DataStore extends EventEmitter {
     }
   }
   applyOperation(operation: Operation) {
-    this.emit('operation', operation);
     switch(operation.operationType) {
       case 'upsert':
         let matched = false;
@@ -60,6 +59,7 @@ export class DataStore extends EventEmitter {
         });
         if (!matched) {
           this.items.push(operation.fields as Item);
+          this.emit('operation', operation);
         }
       break;
       case 'merge':
