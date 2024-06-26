@@ -1,0 +1,18 @@
+[
+    {
+        "type": "github",
+        "tokens": {
+            "michielbdejong": "github_pat_11AA..."
+        },
+        "trackerUrl": "https://api.github.com/repos/federatedbookkeeping/github-dxos",
+        "dataPath": "./replica-data/gh-upstream"
+    },
+    {
+        "type": "github",
+        "tokens": {
+            "michielbdejong": "github_pat_11AA..."
+        },
+        "trackerUrl": "https://api.github.com/repos/michielbdejong/github-dxos",
+        "dataPath": "./replica-data/gh-me"
+    }
+]

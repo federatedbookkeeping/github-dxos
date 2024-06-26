@@ -1,6 +1,10 @@
+// Build
 dist
 node_modules
+// DXOS
 dxos-invite.json
+// DataStore
 data.json
-gh-data/
+// Replicas
+replica-data/
 replicas.json

@@ -34,6 +34,7 @@ export type GitHubReplicaSpec = {
     [user: string]: string;
   };
   trackerUrl: string;
+  dataPath: string;
 };
 
 export class GitHubReplica {
@@ -42,9 +43,11 @@ export class GitHubReplica {
   };
   trackerUrl: string;
   dataStore: DataStore;
+  dataPath: string;
   constructor(spec: GitHubReplicaSpec, dataStore: DataStore) {
     this.tokens = spec.tokens;
     this.trackerUrl = spec.trackerUrl;
+    this.dataPath = spec.dataPath;
     this.dataStore = dataStore;
   }
 
@@ -145,10 +148,10 @@ export class GitHubReplica {
     }
   }
   async sync(user) {
-    const docs: GitHubIssue[] = await this.getIssues('gh-data/issues.json', user);
+    const docs: GitHubIssue[] = await this.getIssues(`${this.dataPath}/issues.json`, user);
     let comments: GitHubComment[] = [];
     const commentFetches = docs.map(async doc => {
-      const issueComments = await this.getData(`gh-data/comments_${doc.node_id}.json`, doc.comments_url, user);
+      const issueComments = await this.getData(`${this.dataPath}/comments_${doc.node_id}.json`, doc.comments_url, user);
       comments = comments.concat(issueComments);
     });
     await Promise.all(commentFetches);
